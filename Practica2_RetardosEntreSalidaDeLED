@@ -1,0 +1,133 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;EstebanTapia FernandoVargas										;
+;Uso de Retardos entre salidas de LEDs									;
+;Microcontroladores											;
+;V0 22 de Septiembre de 2018	Inicio de programacion							;
+;V1 23 de Septiembre de 2018	Ajuste de secuencia en PORTB del profesor				;
+;V2 26 de Septiembre de 2018	Añadida seccion de RETARDO aproximado a 1 segundo de tiempo en ejecucion;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+LIST P=16F887
+#INCLUDE P16F887.INC 
+
+__CONFIG _CONFIG1, _WDT_OFF & _CP_OFF  &_BOR_OFF & _LVP_OFF & _XT_OSC & _MCLRE_ON & _CPD_OFF & _BOR_OFF & _PWRTE_OFF 
+
+CBLOCK  0x20		;Guarda en las localidades 0x20, 0x21 y 0x22 a los registros de proposito general MEM0, MEM1 Y MEM2
+	MEM0
+	MEM1
+	MEM2
+	ENDC
+
+BANK0   MACRO		;Guardado de macros para saltos simples de bancos
+        BCF STATUS,RP0
+        BCF STATUS,RP1
+        ENDM
+BANK1   MACRO
+	BSF STATUS,RP0
+	BCF STATUS,RP1
+        ENDM
+BANK2   MACRO 
+        BCF STATUS,RP0
+        BSF STATUS,RP1
+        ENDM
+BANK3   MACRO
+	BSF STATUS,RP0
+	BSF STATUS,RP1
+        ENDM
+
+	ORG	0X00	  ;Reinicio del PIC
+	GOTO 	INICIO
+	ORG 	0X05
+
+INICIO			;Inicializacion
+	BANK1		;Salto a Banco1
+	MOVLW 0XFF	;Movemos un valor 0xFF a W
+	MOVWF TRISA	;Movemos de W hacia TRISA. Bits: 1=Entrada 0=Salida;
+	BANK3		;Salto a Banco3
+	MOVLW 0X00	;Movemos un valor 0x00 a W
+	MOVWF ANSEL	;Movemos de W hacia ANSEL. Bits: 1=ADC en PORTA Activado  0=ADC en PORTA Desactivado
+	BANK1		;Salto a Banco1
+	MOVLW 0X00	;Movemos un valor 0x00 a W
+	MOVWF TRISB	;Movemos de W hacia TRISB. Bits: 1=Entrada 0=Salida;
+	BANK3		;Salto a Banco3
+	MOVLW 0X00	;Movemos un valor 0x00 a W
+	MOVWF ANSELH	;Movemos de W hacia ANSELH. Bits: 1=ADC en PORTB Activado 0=ADC en PORTB Desactivado
+	BANK0		;Salto a Banco0
+	CLRF PORTA	;Limpiamos a PORTA, PORTB y W
+	CLRF PORTB
+	CLRW
+	
+MAIN			;Comienza Diagrama de Flujo
+	MOVLW 0X01
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X02
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X04
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X02
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X04
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X08
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X04
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X08
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X10
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X08
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X10
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X20
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X10
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X20
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X40
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X20
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X40
+	MOVWF PORTB
+	CALL RETARDO
+	MOVLW 0X80
+	MOVWF PORTB
+	CALL RETARDO
+	GOTO MAIN
+	
+RETARDO
+	MOVLW 0X08
+	MOVWF MEM0
+	MOVLW 0X2F
+	MOVWF MEM1
+	MOVLW 0X03
+	MOVWF MEM2
+	
+CONTEO
+	DECFSZ MEM0, F
+	GOTO $+2
+	DECFSZ MEM1, F
+	GOTO $+2
+	DECFSZ MEM2, F
+	GOTO CONTEO
+	GOTO $+1
+	RETURN
+END
