@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;EstebanTapia FernandoVargas																			;
+;Esteban Tapia Guerrero																			;
 ;Uso de TMR0 en retardos entre salidas de LEDs															;
 ;Microcontroladores																						;
 ;V0 09 de Octubre de 2018	Inicio de programacion														;
@@ -9,9 +9,9 @@ LIST P=16F887
 
 __CONFIG _CONFIG1, _WDT_OFF & _CP_OFF  &_BOR_OFF & _LVP_OFF & _XT_OSC & _MCLRE_ON & _CPD_OFF & _BOR_OFF & _PWRTE_OFF 
 
-CBLOCK  0x20		;Guarda en las localidades 0x20, 0x21 y 0x22 a los registros de proposito general MEM0, MEM1 Y MEM2
-		MEM0
-		MEM1
+CBLOCK  0x20		;Guarda en las localidades 0x20 y 0x21 a los registros de proposito general MEM0, MEM1
+	MEM0
+	MEM1
 ENDC
 
 BANK0   MACRO		;Guardado de macros para saltos simples de bancos
@@ -19,122 +19,123 @@ BANK0   MACRO		;Guardado de macros para saltos simples de bancos
         BCF STATUS,RP1
         ENDM
 BANK1   MACRO
-		BSF STATUS,RP0
-		BCF STATUS,RP1
+	BSF STATUS,RP0
+	BCF STATUS,RP1
         ENDM
 BANK2   MACRO 
         BCF STATUS,RP0
         BSF STATUS,RP1
         ENDM
 BANK3   MACRO
-		BSF STATUS,RP0
-		BSF STATUS,RP1
+	BSF STATUS,RP0
+	BSF STATUS,RP1
         ENDM
 
-		ORG	0X00	;Reinicio del PIC
-		GOTO 	INICIALIZACION
-		ORG 	0X04
-		GOTO INTERRUPCION
+	ORG	0X00	;Reinicio del PIC
+	GOTO 	INICIALIZACION
+	ORG 	0X04	;Configuracion del vector de Interrupcion
+	GOTO INTERRUPCION
 
-INICIALIZACION				;Inicializacion
-		BANK1		;Salto a Banco1
-		MOVLW 0X47
-		MOVWF OPTION_REG
-		MOVLW 0X00	;Movemos un valor 0x00 a W
-		MOVWF TRISB	;Movemos de W hacia TRISB. Bits: 1=Entrada 0=Salida;
-		BANK3		;Salto a Banco3
-		MOVLW 0X00	;Movemos un valor 0x00 a W
-		MOVWF ANSELH	;Movemos de W hacia ANSELH. Bits: 1=ADC en PORTB Activado 0=ADC en PORTB Desactivado
-		BANK0		;Salto a Banco0
-		MOVLW 0X14
-		MOVWF MEM1
-		CLRF TMR0
-		MOVLW 0X3C
-		MOVWF TMR0
-		MOVLW 0XA0
-		MOVWF INTCON
-		CLRF PORTB	;Limpiamos a PORTB y W
-		CLRF MEM0
-		CLRW
+INICIALIZACION		;Inicializacion
+	BANK1		;Salto a Banco1
+	MOVLW 0X47	;Activamos el prescaler a 255 y el filo de activacion en modo de subida
+	MOVWF OPTION_REG
+	MOVLW 0X00	;Movemos un valor 0x00 a W
+	MOVWF TRISB	;Movemos de W hacia TRISB. Bits: 1=Entrada 0=Salida;
+	BANK3		;Salto a Banco3
+	MOVLW 0X00	;Movemos un valor 0x00 a W
+	MOVWF ANSELH	;Movemos de W hacia ANSELH. Bits: 1=ADC en PORTB Activado 0=ADC en PORTB Desactivado
+	BANK0		;Salto a Banco0
+	MOVLW 0X14	;Cargamos un Dec 20 a MEM1
+	MOVWF MEM1
+	CLRF TMR0	;Limpiamos TMR0
+	MOVLW 0X3C	;Cargamos un dec 195 a TMR0
+	MOVWF TMR0
+	MOVLW 0XA0	;Habilitamos Interrupciones generales e Interrupciones por TMR0
+	MOVWF INTCON
+	CLRF PORTB	;Limpiamos a PORTB y W
+	CLRF MEM0
+	CLRW
 	
-PRINCIPAL			;Comienza Diagrama de Flujo
-		MOVLW 0X01
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X02
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X04
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X02
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X04
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X08
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X04
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X08
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X10
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X08
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X10
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X20
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X10
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X20
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X40
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X20
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X40
-		MOVWF PORTB
-		CALL NADA
-		MOVLW 0X80
-		MOVWF PORTB
-		CALL NADA
-		GOTO PRINCIPAL
+PRINCIPAL		;Comienza Diagrama de Flujo
+	MOVLW 0X01
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X02
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X04
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X02
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X04
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X08
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X04
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X08
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X10
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X08
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X10
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X20
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X10
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X20
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X40
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X20
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X40
+	MOVWF PORTB
+	CALL NADA
+	MOVLW 0X80
+	MOVWF PORTB
+	CALL NADA
+	GOTO PRINCIPAL
 	
 INTERRUPCION
-		DECFSZ MEM1
-		GOTO RESTART
-		MOVLW 0X01
-		MOVWF MEM0
-		MOVLW 0X14
-		MOVWF MEM1
+	DECFSZ MEM1	;Decrementa en 1 a MEM1
+	GOTO RESTART	;Si aun no es 0, resetea el tmr0
+	MOVLW 0X01	;Si es 1, MEM0,0 = 1 y carga nuevamente el valor de 0x14 a MEM1
+	MOVWF MEM0
+	MOVLW 0X14
+	MOVWF MEM1
 
-RESTART	MOVLW 0X47
-		MOVWF OPTION_REG		
-		MOVLW 0XA0
-		MOVWF INTCON
-		CLRF TMR0
-		MOVLW 0X3C
-		MOVWF TMR0
-		RETFIE
+RESTART			;reconfiguracion y restart de TMR0
+	MOVLW 0X47
+	MOVWF OPTION_REG		
+	MOVLW 0XA0
+	MOVWF INTCON
+	CLRF TMR0
+	MOVLW 0X3C
+	MOVWF TMR0
+	RETFIE		;Sale de la interrupcion
 
 NADA
-		BTFSS MEM0,0
-		GOTO NADA
-		CLRF MEM0
-		RETURN
+	BTFSS MEM0,0	;Revisa si se completo la rutina de tiempo y hace el salto en el programa principal
+	GOTO NADA	;Si MEM0,0 es 0, regresa a NADA
+	CLRF MEM0	;Si mem0,0 es 1, limpia a MEM0 y regresa al programa principal
+	RETURN		;Sale de la subrutina
 
-END
+END			;Termina el programa
