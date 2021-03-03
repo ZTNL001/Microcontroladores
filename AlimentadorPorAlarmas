@@ -1,0 +1,560 @@
+#INCLUDE <16f887.h>               //Incluye la Libreria de Pic a Utilizar
+#device adc=10
+#USE delay(clock=1M)                          //Cristal externo de 1M
+#FUSES NODEBUG, NOLVP, NOBROWNOUT, NOCPD, NOPROTECT, PUT, NOWDT, INTRC,  NOWRT
+#define KEYHIT_DELAY 10
+#use I2C(master, I2C1, FAST = 100000)
+#ROM 0x10D = {3,5,18,13,01,01}            //hora 1ra alarma
+#ROM 0x2106 = {3,5,18,13,01,01}            //hora 2da alarma
+#ROM 0x210C = {3,5,18,13,01,01}            //hora 3ra alarma
+#DEFINE LCD_ENABLE_PIN  PIN_E0
+#DEFINE LCD_RS_PIN      PIN_E1
+#DEFINE LCD_RW_PIN      PIN_E2
+#DEFINE LCD_DATA4       PIN_C0
+#DEFINE LCD_DATA5       PIN_C1
+#DEFINE LCD_DATA6       PIN_C5
+#DEFINE LCD_DATA7       PIN_C6
+#BYTE puertod=0b00000000
+#DEFINE off PUERTOC,2
+#INCLUDE <lcd.c>                                    //Incluye la Libreria del LCD
+#INCLUDE <kbd4x4.c>
+int  h1=0,m1=0,s1=0,dia1=0,mes1=0,yr1=0,h2=0,m2=0,s2=0,dia2=0,mes2=0,yr2=0,h3=0,m3=0,s3=0,dia3=0,mes3=0,yr3=0;                                        //seg, min, hr
+int maxday=0;
+int z=0,a=0;
+char k='0';
+int x=0;
+unsigned int8 seg0, min0, hr0, dia0, fecha0, mes0, yr0;
+char tiempo[] = "TIME:  :  :  ";
+char calendario[] = "DATE:  /  /20  ";
+
+//secciones del programa
+void ds1307_conver()
+{
+  // Convert BCD to decimal
+  seg0 = (seg0 >> 4) * 10 + (seg0 & 0x0F);
+  min0 = (min0 >> 4) * 10 + (min0 & 0x0F);
+  hr0 = (hr0 >> 4) * 10 + (hr0 & 0x0F);
+  dia0 = (dia0 >> 4) * 10 + (dia0 & 0x0F);
+  mes0 = (mes0 >> 4) * 10 + (mes0 & 0x0F);
+  yr0 = (yr0 >> 4) * 10 + (yr0 & 0x0F);
+  // End conversion
+  tiempo[12]     = seg0 % 10  + 48;
+  tiempo[11]     = seg0 / 10  + 48;
+  tiempo[9]      = min0 % 10  + 48;
+  tiempo[8]      = min0 / 10  + 48;
+  tiempo[6]      = hr0 % 10  + 48;
+  tiempo[5]      = hr0 / 10  + 48;
+  calendario[14] = yr0 % 10 + 48;
+  calendario[13] = yr0 / 10  + 48;
+  calendario[9]  = mes0 % 10 + 48;
+  calendario[8]  = mes0 / 10 + 48;
+  calendario[6]  = dia0 % 10 + 48;
+  calendario[5]  = dia0 / 10 + 48;
+  lcd_gotoxy(1, 1);                              // Go to column 1 row 1
+  printf(lcd_putc, tiempo);                        // Display time
+  lcd_gotoxy(1, 2);                              // Go to column 1 row 2
+  printf(lcd_putc, calendario);                    // Display calendar
+}
+
+void ds1307_read()
+{
+   i2c_start();                         // Start I2C
+   i2c_write(0xD0);                     // DS1307 address
+   i2c_write(0);                        // Send register address
+   i2c_start();                         // Restart I2C
+   i2c_write(0xD1);                     // Initialize data read
+   seg0 =i2c_read(1);                 // Read seconds from register 0
+   min0 =i2c_read(1);                 // Read minuts from register 1
+   hr0 =i2c_read(1);                  // Read hour from register 2
+   dia0 =i2c_read(1);                   // Read day from register 3
+   fecha0 =i2c_read(1);                  // Read date from register 4
+   mes0 =i2c_read(1);                 // Read month from register 5
+   yr0 =i2c_read(0);                  // Read year from register 6
+   i2c_stop();                          // Stop I2C
+}
+
+void ds1307_write(unsigned int8 address, data_)
+{
+      i2c_start();                                   // Start I2C protocol
+      i2c_write(0xD0);                               // DS1307 address
+      i2c_write(address);                            // Send register address
+      i2c_write(data_);                              // Write data to the selected register
+      i2c_stop();                                    // Stop I2C protocol
+}
+
+void abrircerrar()
+{
+   printf(lcd_putc,"\f");
+   lcd_gotoxy(1,1);
+   printf(lcd_putc,"Alarma 1");
+   a=0;
+   while(a==0)
+   {
+         set_pwm1_duty(14);
+         delay_ms(58000);
+         set_pwm1_duty(47);
+         a=1;
+   }
+}
+
+void max_mes()
+{
+   switch (mes0)
+   {
+      case 1:
+      maxday=31;
+      break;
+      case 2:
+      maxday=28;
+      break;
+      case 3:
+      maxday=31;
+      break;
+      case 4:
+      maxday=30;
+      break;
+      case 5:
+      maxday=31;
+      break;
+      case 6:
+      maxday=30;
+      break;
+      case 7:
+      maxday=31;
+      break;
+      case 8:
+      maxday=31;
+      break;
+      case 9:
+      maxday=30;
+      break;
+      case 10:
+      maxday=31;
+      break;
+      case 11:
+      maxday=30;
+      break;
+      case 12:
+      maxday=31;
+      break;
+   }
+}
+
+void modificarhrfecha()
+{
+   printf(lcd_putc,"\f");
+   printf(lcd_putc,"Ingrese Hr/Fecha");
+   delay_ms(1000);
+   printf(lcd_putc,"\f");
+   while(z==0)
+   {
+   max_mes();
+   lcd_gotoxy(1,1);                                 //pocicion de la lcd linea1 caracter1
+      lcd_gotoxy(1,1);
+      printf(lcd_putc,"  %02d - %02d - %02d  ",dia0,mes0,yr0);
+      lcd_gotoxy(1,2);
+      printf (lcd_putc," %02d : %02d : %02d ",hr0,min0,seg0);
+   do
+   {
+      k=kbd_getc(); //Captura valor del teclado
+   }
+   while(k=='\0');
+   {
+      x = k - '0';
+   }   
+   switch(x)
+   {
+      case 1:  // si selector (S) igual a 1
+      {
+         if(dia0<maxday)
+         {
+            dia0++;
+         }
+         else
+         {
+            dia0=1;
+         }
+         break;
+      }
+      case 2:
+      {
+         if(mes0<12)
+         {
+            mes0++;
+         }
+         else
+         {
+            mes0=1;
+         }
+         break;
+      }
+      case 3:
+      {
+         yr0++;
+         break;
+      }
+      case 4:
+      {
+         if(hr0<23)
+         {
+            hr0++;
+         }
+         else
+         {
+            hr0=00;
+         }
+         break;
+      }
+      case 5:
+      {
+         if(min0<59)
+         {
+            min0++;
+         }
+         else
+         {
+            min0=00;
+         }
+         break;
+      }
+      case 6:
+      {
+         if(seg0<59)
+         {
+            seg0++;
+         }
+         else
+         {
+            seg0=00;
+         }
+         break;
+      }
+      case 9:
+      {
+         z=1;
+         break;
+      }
+   }
+}
+   z=0;
+   min0 = ((min0 / 10) << 4) + (min0 % 10);
+   hr0 = ((hr0 / 10) << 4) + (hr0 % 10);
+   fecha0 = ((fecha0 / 10) << 4) + (dia0 % 10);
+   mes0 = ((mes0 / 10) << 4) + (mes0 % 10);
+   yr0 = ((yr0 / 10) << 4) + (yr0 % 10);
+   ds1307_write(1, min0);                   // Write minute value to DS1307
+   ds1307_write(2, hr0);
+   ds1307_write(4, fecha0);
+   ds1307_write(5, mes0);
+   ds1307_write(6, yr0);
+   ds1307_write(0, 0);                        //Reset seconds and start oscillator
+   delay_ms(200);
+}
+
+void inicializar()
+{
+   setup_adc_ports(NO_ANALOGS|VSS_VDD);               //seccion de servo motor
+   setup_timer_2(T2_DIV_BY_16,311,1);
+   setup_ccp1(CCP_PWM);
+   set_pwm1_duty(1023);
+   setup_oscillator(OSC_1MHZ|OSC_INTRC);   
+   lcd_init();                                        //inicio de teclado y lcd
+   kbd_init();
+   //port_b_pullups (0b11111111);
+   lcd_gotoxy(1,1);
+   printf(lcd_putc," Bi en ve ni do");
+   delay_ms(1000);
+}
+
+void comparacionalarmas()
+{
+      while ((h1==hr0)&&(m1==min0)&&(dia1==fecha0)&&(mes1==mes0)&&(yr1==yr0))
+      {
+         abrircerrar();
+      }
+      while ((h2==hr0)&&(m2==min0)&&(dia2==fecha0)&&(mes2==mes0)&&(yr2==yr0))
+      {
+         abrircerrar();
+      }
+      while ((h3==hr0)&&(m3==min0)&&(dia3==fecha0)&&(mes3==mes0)&&(yr3==yr0))
+      {
+         abrircerrar();
+      }
+}
+
+void modificaralarma1()
+{
+   dia1=read_eeprom(0x2100);
+   mes1=read_eeprom(0X2101);
+   yr1=read_eeprom(0X2102);
+   h1=read_eeprom(0X2103);
+   m1=read_eeprom(0X2104);
+   s1=read_eeprom(0X2105);
+   printf(lcd_putc,"\f");
+   lcd_gotoxy(1,1);
+   printf(lcd_putc,"Ingrese Alarma 1");
+   delay_ms(1000);
+   printf(lcd_putc,"\f");
+   while(z==0)
+   {
+      max_mes();
+      lcd_gotoxy(1,1);
+      printf(lcd_putc,"  %02i - %02i - %02i  ",dia1,mes1,yr1);
+      lcd_gotoxy(1,2);
+      printf (lcd_putc,"  %02i : %02i : %02i  ",h1,m1,s1);
+      do
+      {
+         k=kbd_getc(); //Captura valor del teclado
+      }
+      while(k=='\0');
+      {
+         x = k - '0';
+      }   
+      switch(x)
+      {
+         case 1:  // si selector (S) igual a 1
+         {
+            if(dia1<maxday)
+            {
+               dia1++;
+            }
+            else
+            {
+               dia1=1;
+            }
+            break;
+            }
+         case 2:
+         {
+            if(mes1<12)
+            {
+               mes1++;
+            }
+            else
+            {
+               mes1=1;
+            }
+         break;
+         }
+         case 3:
+         {
+            yr1++;
+            break;
+         }
+         case 4:
+         {
+            if(h1<23)
+            {
+               h1++;
+            }
+            else
+            {
+               h1=0;
+            }
+            break;
+         }
+         case 5:
+         {
+            if(m1<59)
+            {
+               m1++;
+            }
+            else
+            {
+               m1=0;
+            }
+            break;
+         }
+         case 6:
+         {
+            if(s1<59)
+            {
+               s1++;
+            }
+            else
+            {
+               s1=0;
+            }
+            break;
+         }
+         case 9:
+         {
+            z=1;
+            break;
+         }
+      }
+   }
+   z=0;
+   write_EEPROM(0X2100,dia1);
+   write_EEPROM(0X2101,mes1);
+   write_EEPROM(0X2102,yr1);
+   write_EEPROM(0X2103,h1);
+   write_EEPROM(0X2104,m1);
+   write_EEPROM(0X2105,s1);
+}
+
+void modificaralarma2()
+{
+   dia2=read_eeprom(0X2106);
+   mes2=read_eeprom(0X2107);
+   yr2=read_eeprom(0X2108);
+   h2=read_eeprom(0X2109);
+   m2=read_eeprom(0X210A);
+   s2=read_eeprom(0X0210B);
+   printf(lcd_putc,"\f");
+   lcd_gotoxy(1,1);
+   printf(lcd_putc,"Ingrese Alarma 2");
+   delay_ms(1000);
+   printf(lcd_putc,"\f");
+   while(z==0)
+   {
+      max_mes();
+      lcd_gotoxy(1,1);
+      printf(lcd_putc,"  %02d - %02d - %02d  ",dia2,mes2,yr2);
+      lcd_gotoxy(1,2);
+      printf (lcd_putc,"  %02d : %02d : %02d  ",h2,m2,s2);
+      do
+      {
+         k=kbd_getc(); //Captura valor del teclado
+      }
+      while(k=='\0');
+      {
+         x = k - '0';
+      }   
+      switch(x)
+      {
+         case 1:  // si selector (S) igual a 1
+         {
+            if(dia2<maxday)
+            {
+               dia2++;
+            }
+            else
+            {
+               dia2=1;
+            }
+            break;
+            }
+         case 2:
+         {
+            if(mes2<12)
+            {
+               mes2++;
+            }
+            else
+            {
+               mes2=1;
+            }
+         break;
+         }
+         case 3:
+         {
+            yr2++;
+            break;
+         }
+         case 4:
+         {
+            if(h2<23)
+            {
+               h2++;
+            }
+            else
+            {
+               h2=00;
+            }
+            break;
+         }
+         case 5:
+         {
+            if(m2<59)
+            {
+               m2++;
+            }
+            else
+            {
+               m2=00;
+            }
+            break;
+         }
+         case 6:
+         {
+            if(s2<59)
+            {
+               s2++;
+            }
+            else
+            {
+               s2=00;
+            }
+            break;
+         }
+         case 9:
+         {
+            z=1;
+            break;
+         }
+      }
+   }
+   z=0;
+   write_eeprom(0X2106,dia2);
+   write_eeprom(0X2107,mes2);
+   write_eeprom(0X2108,yr2);
+   write_eeprom(0X2109,h2);
+   write_eeprom(0X210A,m2);
+   write_eeprom(0X210B,s2);
+}
+
+void cargadealarmas()
+{
+   dia1 = read_eeprom(0x2100);
+   mes1 = read_eeprom(0x2101);
+   yr1 = read_eeprom(0x2102);
+   h1 = read_eeprom(0x2103);
+   m1 = read_eeprom(0x2104);
+   s1 = read_eeprom(0x2105);
+   dia2 = read_eeprom(0X2106);
+   mes2 = read_eeprom(0x2107);
+   yr2 = read_eeprom(0x2108);
+   h2 = read_eeprom(0x2109);
+   m2 = read_eeprom(0x210A);
+   s2 = read_eeprom(0x210B);
+   dia3 = read_eeprom(0x210C);
+   mes3 = read_eeprom(0x210D);
+   yr3 = read_eeprom(0x210E);
+   h3 = read_eeprom(0x210F);
+   m3 = read_eeprom(0x2110);
+   s3 = read_eeprom(0x2111);
+}
+
+#INT_EXT
+void cambioalarma()
+{
+   modificaralarma1();
+   modificaralarma2();
+}
+
+//programa principal
+void main()
+{
+   inicializar();
+   cargadealarmas();
+   modificarhrfecha();
+   while (true)
+   {
+      i2c_start();                                  // Start I2C protocol
+      i2c_write(0xD0);                              // DS1307 address
+      i2c_write(0);                                 // Send register address
+      i2c_start();                                  // Restart I2C
+      i2c_write(0xD1);                              // Initialize data read
+      seg0 = i2c_read(1);                         // Read seconds from register 0
+      min0 = i2c_read(1);                         // Read minuts from register 1
+      hr0 = i2c_read(1);                         // Read hour from register 2
+      dia0 = i2c_read(1);                         // Read day from register 3
+      fecha0 = i2c_read(1);                         // Read date from register 4
+      mes0 = i2c_read(1);                         // Read month from register 5
+      yr0 = i2c_read(0);                         // Read year from register 6
+      i2c_stop();                                   // Stop I2C protocol
+      ds1307_conver();                             // Diaplay time & calendar
+      delay_ms(50);
+   }
+}
